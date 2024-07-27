@@ -273,3 +273,257 @@ def authenticate_user_db(username, password):
                 add_log_db(current_user, "logged in", current_user)
                 return current_user
     return None
+def register_user_db(fname, lname, address, phone_number, password):
+    for i in root.users:
+        if root.users[i].get_fname() == fname:
+            return False
+    root.user_id_count += 1
+    patient = Patient(fname, lname, address, phone_number, password, root.user_id_count)
+    root.users[root.user_id_count] = patient
+    transaction.commit()
+    current_user = patient
+    return current_user
+
+def addUsersAndOthers():
+    add_admin_if_no_admin()
+    add_doctor_if_no_doctor()
+    add_nurse_if_no_nurse()
+    add_patient_if_no_patient()
+    add_medicine_if_no_medicine()
+    add_report_if_no_report()
+    add_room_if_no_room()
+
+def delete_user_db(user_id):
+    del root.users[user_id]
+    transaction.commit()
+
+def delete_user_db_by_id(current_user, user_id):
+    if user_id in root.users:
+        if isinstance(root.users[user_id], Admin):
+            print("Cannot delete admin")
+            return False
+        elif isinstance(root.users[user_id], Doctor):
+            add_log_db(current_user, "deleted Doctor", root.users[user_id])
+            del root.users[user_id]
+            root.employee_id_list.remove(user_id)
+            root.employee_id_list._p_changed = True
+            transaction.commit()
+            # print("Deleted Doctor ", user_id)
+            return True
+        elif isinstance(root.users[user_id], Nurse):
+            add_log_db(current_user, "deleted Nurse", root.users[user_id])
+            del root.users[user_id]
+            root.employee_id_list.remove(user_id)
+            root.employee_id_list._p_changed = True
+            transaction.commit()
+            # print("Deleted Nurse ", user_id)
+            return True
+        elif isinstance(root.users[user_id], Patient):
+            add_log_db(current_user, "deleted Patient", root.users[user_id])
+            del root.users[user_id]
+            transaction.commit()
+            # print("Deleted Patient ", user_id)
+            return True
+    return False
+
+def getUserToDisplay(role, search_text, search_attribute):
+    users_to_display = []
+
+    if role == "Doctor" or role == "Nurse":
+        for i in root.employee_id_list:
+            if root.users[i].role == role and search_text in str(getattr(root.users[i], search_attribute)).lower():
+                users_to_display.append(root.users[i])
+
+    else:
+        for i in root.users:
+            if root.users[i].__class__.__name__ == role:
+                if search_text in str(getattr(root.users[i], search_attribute)).lower():
+                    users_to_display.append(root.users[i])
+    return users_to_display
+
+def update_user_attributes(current_user, user_id, data):
+    root.users[user_id].update_attributes(data) # Assuming a method to update attributes
+    add_log_db(current_user, "updated data for", root.users[user_id])
+    transaction.commit()
+
+def add_log_db(actor, action, target):
+    root.log_id_count += 1
+    log = Log(root.log_id_count, actor, action, target)
+    root.logs[root.log_id_count] = log
+    transaction.commit()
+
+def get_logs():
+    logs = []
+    for i in root.logs:
+        logs.append(root.logs[i])
+    return logs
+
+def delete_log_db():
+    for i in root.logs:
+        del root.logs[i]
+    root.log_id_count = 0
+    transaction.commit()
+
+def get_all_patients():
+    patients = []
+    for i in root.users:
+        if root.users[i].__class__.__name__ == "Patient":
+            patients.append(root.users[i])
+    return patients
+
+def get_patient_by_id(patient_id):
+    return root.users[patient_id]
+
+def get_patient_by_name(name):
+    for i in root.users:
+        if root.users[i].__class__.__name__ == "Patient":
+            if root.users[i].get_fname() == name:
+                return root.users[i]
+    return None
+
+def get_user_by_id(user_id):
+    return root.users[user_id]
+
+def get_all_staffs():
+    staffs = []
+    for i in root.employee_id_list:
+        staffs.append(root.users[i])
+    return staffs
+
+def get_all_doctor_and_nurse():
+    staffs = []
+    for i in root.employee_id_list:
+        if root.users[i].__class__.__name__ == "Doctor" or root.users[i].__class__.__name__ == "Nurse":
+            staffs.append(root.users[i])
+    return staffs
+
+def get_all_doctors():
+    doctors = []
+    for i in root.employee_id_list:
+        if root.users[i].__class__.__name__ == "Doctor":
+            doctors.append(root.users[i])
+    return doctors
+
+def get_all_nurses():
+    nurses = []
+    for i in root.employee_id_list:
+        if root.users[i].__class__.__name__ == "Nurse":
+            nurses.append(root.users[i])
+    return nurses
+
+def add_medicine_db(medicine_id, name, description, quantity, duration, when, price_per_dose):
+    medicine = Medicine(medicine_id ,name, description, int(quantity), duration, when, int(price_per_dose))
+    root.medicines[medicine_id] = medicine
+    transaction.commit()
+    return medicine
+
+def search_medicine_db(text):
+    medicines = []
+    for i in root.medicines:
+        if text.lower() in root.medicines[i].name.lower():
+            medicines.append(root.medicines[i])
+    return medicines
+
+def get_medicine(medicine_id):
+    return root.medicines[medicine_id]
+
+def save_list_of_medicine(medicine_list):
+    root.current_medicine_selected = medicine_list
+    transaction.commit()
+
+def get_list_of_medicine():
+    return root.current_medicine_selected
+
+def add_service_db(name, price, discount_percentage, insurance_name, insurance_coverage):
+    service = Service(name, float(price), float(discount_percentage), insurance_name, float(insurance_coverage))
+    transaction.commit()
+    return service
+
+def save_service_list(service_list):
+    root.current_service_selected = service_list
+    transaction.commit()
+
+def get_list_of_service():
+    return root.current_service_selected
+
+def createBill(overallDiscount):
+    bill = Bill(float(overallDiscount))
+    bill.setServices(root.current_service_selected)
+    bill.setMedicines(root.current_medicine_selected)
+    transaction.commit()
+    return bill
+
+def createMedicalRecord(height, weight, sex, pulse_rate, blood_pressure, allegies, title, description, details):
+    medical_record = MedicalRecord(height, weight, sex, pulse_rate, blood_pressure, allegies, title, description, details)
+    transaction.commit()
+    return medical_record
+
+def add_report(patient_id, current_user, medical_record, bill):
+    print("adding report")
+    root.report_id_count += 1
+    report = Report(root.report_id_count, patient_id, current_user.get_id(), medical_record, bill)
+    root.reports[root.report_id_count] = report
+    # add report to patient
+    patient = root.users[patient_id]
+    patient.add_medical_history(report)
+    transaction.commit()
+    return report
+
+def get_all_reports():
+    reports = []
+    for i in root.reports:
+        reports.append(root.reports[i])
+    return reports
+
+def save():
+    transaction.commit()
+
+def create_appointment_db(date, start_time, end_time, doctor, speciality, patient, confirm):
+    root.last_appointment_id += 1
+    if confirm == False:
+        confirm = "No"
+    appointment = Appointment(root.last_appointment_id, date, start_time, end_time, doctor, speciality, patient, confirm)
+    root.appointments[root.last_appointment_id] = appointment
+    root.appointment_id_list.append(root.last_appointment_id)
+    patient.add_appointment(appointment)
+    doctor.add_appointment(appointment)
+    transaction.commit()
+    return appointment
+
+def delete_appointment_db(appointment_id):
+    del root.appointments[appointment_id]
+    transaction.commit()
+
+def get_all_appointments():
+    appointments = []
+    for i in root.appointments:
+        appointments.append(root.appointments[i])
+    return appointments
+
+def add_room_if_no_room():
+    if len(root.rooms) == 0:
+        add_room("1ird")
+        add_room("2eui")
+        add_room("3ujd")
+        add_room("4ird")
+        add_room("5lid")
+
+def add_room(room_number):
+    root.rooms[room_number] = ExaminationRoom(room_number)
+    transaction.commit()
+
+def get_room(room_number):
+    return root.rooms[room_number]
+
+def get_all_rooms():
+    rooms = []
+    for i in root.rooms:
+        rooms.append(root.rooms[i])
+    return rooms
+
+def delete_room(room_number):
+    del root.rooms[room_number]
+    transaction.commit()
+
+def get_room_by_number(room_number):
+    return root.rooms[room_number]
